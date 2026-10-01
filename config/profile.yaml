@@ -1,0 +1,48 @@
+# Jose Ross's freelance positioning.
+# This is the single source of truth the Fit Analyst scores jobs against.
+# Edit this file as your rates/stack/preferences change -- never hardcode
+# profile facts inside agent prompts.
+
+name: "Jose Ross"
+title: "AI Engineer & Automation Specialist"
+
+stack:
+  - Python
+  - TypeScript
+  - "Claude (Anthropic API / Claude Code)"
+  - "OpenAI API"
+  - "RAG architectures"
+  - "Vector databases"
+  - "LLM function calling / tool use"
+  - n8n
+  - Make
+  - "Zoho CRM API"
+
+target_roles:
+  - "AI Agent Development"
+  - "Custom RAG Systems"
+  - "Claude/Anthropic ecosystem builds"
+  - "API-driven automation"
+
+rates:
+  hourly_min_usd: 40
+  hourly_max_usd: 80
+  fixed_price_minimum_usd: 250
+
+availability_hours_per_week: "20-30"
+
+client_preferences:
+  min_feedback_rating: 4.8
+  require_verified_payment: true
+  prefer_clear_scope: true
+
+links:
+  github: "https://github.com/joseeross"
+  upwork: "https://www.upwork.com/freelancers/joser126"
+
+red_flags:
+  - "No payment method verified"
+  - "Vague scope with 'ongoing' budget and no fixed deliverables"
+  - "Rate far below $40/hr with senior-level requirements"
+  - "Asks for free trial work / unpaid 'test project'"
+  - "Client feedback rating below 4.5 with many past freelancers"
