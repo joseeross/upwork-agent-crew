@@ -152,7 +152,7 @@
         "resource": "draft",
         "subject": "={{ '[' + $json.verdict + ($json.forced ? ' / FORCED' : '') + '] ' + $('Normalize Input').item.json.posting.trim().split('\\n')[0].slice(0, 80) }}",
         "emailType": "text",
-        "message": "=PROPOSAL\n========\n{{ $json.proposal }}\n\n\nFIT ANALYSIS\n============\n{{ $json.fit_output }}\n\n\nCLIENT RESEARCH\n===============\n{{ $json.research_output }}",
+        "message": "={{ ($json.warnings || []).length ? 'FACT CHECK - REVIEW BEFORE SENDING\\n' + $json.warnings.map(w => '- ' + w).join('\\n') + '\\n\\n\\n' : '' }}PROPOSAL\n========\n{{ $json.proposal }}\n\n\nFIT ANALYSIS\n============\n{{ $json.fit_output }}\n\n\nCLIENT RESEARCH\n===============\n{{ $json.research_output }}",
         "options": {}
       }
     },

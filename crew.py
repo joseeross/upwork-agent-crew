@@ -32,6 +32,8 @@ from agents.crew_agents import (
     build_client_researcher,
     build_proposal_writer,
 )
+from tools.job_parser_tool import _extract_screening_phrase
+from tools.profile_tool import LoadFreelancerProfileTool
 from tasks.crew_tasks import (
     build_scout_task,
     build_fit_task,
@@ -51,6 +53,28 @@ def load_api_key() -> None:
     alias = os.environ.get("CREW_ANTHROPIC_API_KEY")
     if alias and not os.environ.get("ANTHROPIC_API_KEY"):
         os.environ["ANTHROPIC_API_KEY"] = alias
+
+
+def check_proposal(proposal: str, posting: str, profile_text: str) -> list[str]:
+    """Deterministic post-checks on the drafted proposal (no model call).
+
+    Flags a required screening phrase that's missing or not at the start,
+    and any URL not present in the profile -- the two fabrications seen in
+    live runs. Returned as human-readable warnings; nothing is auto-edited.
+    """
+    warnings = []
+    phrase = _extract_screening_phrase(posting)
+    if phrase:
+        body = proposal.lstrip(" \n*_#>\"'")
+        if phrase not in proposal:
+            warnings.append(f'Required phrase "{phrase}" is missing.')
+        elif re.search(r"\bstart\b", posting, re.I) and not body.startswith(phrase):
+            warnings.append(f'Posting asks to start with "{phrase}", but the proposal does not.')
+    for url in sorted(set(re.findall(r"(?:https?://)?(?:www\.)?github\.com/[\w./-]+", proposal))):
+        bare = re.sub(r"^(?:https?://)?(?:www\.)?", "", url).rstrip("./")
+        if bare not in profile_text:
+            warnings.append(f"Link not in your profile (check it exists): {url}")
+    return warnings
 
 
 def parse_verdict(fit_output_text: str) -> str:
@@ -103,6 +127,7 @@ def run_pipeline(job_posting_text: str, force: bool = False) -> dict:
         "fit_output": fit_output,
         "research_output": "",
         "proposal": "",
+        "warnings": [],
     }
     if verdict != "RECOMMEND" and not force:
         return result
@@ -133,6 +158,9 @@ def run_pipeline(job_posting_text: str, force: bool = False) -> dict:
 
     result["research_output"] = research_output
     result["proposal"] = str(proposal_task.output)
+    result["warnings"] = check_proposal(
+        result["proposal"], job_posting_text, LoadFreelancerProfileTool()._run()
+    )
     return result
 
 
@@ -182,6 +210,13 @@ def main():
     print("FINAL PROPOSAL")
     print("=" * 60)
     print(result["proposal"])
+
+    if result["warnings"]:
+        print("\n" + "=" * 60)
+        print("FACT CHECK -- REVIEW BEFORE SENDING")
+        print("=" * 60)
+        for w in result["warnings"]:
+            print(f"- {w}")
 
 
 if __name__ == "__main__":

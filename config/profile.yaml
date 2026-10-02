@@ -31,6 +31,24 @@ rates:
 
 availability_hours_per_week: "20-30"
 
+location: "Puerto Rico"
+timezone: "Atlantic Standard Time (AST, UTC-4, no daylight saving)"
+
+# The ONLY projects proposals may cite. Add new ones here as you build them;
+# the Proposal Writer is told never to name a project that isn't listed.
+projects:
+  - name: "upwork-agent-crew"
+    link: "https://github.com/joseeross/upwork-agent-crew"
+    summary: >-
+      Multi-agent CrewAI pipeline on Claude that triages Upwork job postings,
+      scores fit against a YAML profile, and drafts proposals; wired into n8n
+      (form/webhook intake -> crew API -> Gmail drafts), Dockerized, with
+      regex fact extraction and a pytest suite + GitHub Actions CI.
+
+# Paid client engagements with real outcomes. Empty = none yet; proposals
+# must say so honestly instead of implying deployed client results.
+client_work: []
+
 client_preferences:
   min_feedback_rating: 4.8
   require_verified_payment: true

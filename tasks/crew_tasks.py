@@ -15,6 +15,8 @@ See crew.py for the gating logic between the two stages.
 
 from crewai import Task
 
+from tools.profile_tool import LoadFreelancerProfileTool
+
 
 def build_scout_task(agent, job_posting_text: str) -> Task:
     return Task(
@@ -81,31 +83,45 @@ def build_research_task(agent, scout_summary_text: str) -> Task:
 
 
 def build_proposal_task(agent, job_posting_text: str, fit_summary_text: str, research_summary_text: str) -> Task:
+    profile_text = LoadFreelancerProfileTool()._run()
     return Task(
         description=(
+            "Jose's profile (the ONLY source of facts about Jose):\n---\n"
+            + profile_text + "\n---\n\n"
             "Original job posting:\n---\n" + job_posting_text + "\n---\n\n"
             "Fit analysis:\n---\n" + fit_summary_text + "\n---\n\n"
             "Client research:\n---\n" + research_summary_text + "\n---\n\n"
             "Write a tailored Upwork proposal for this job in Jose's voice: "
             "direct, specific, senior-engineer tone, no generic filler.\n"
             "Requirements:\n"
-            "1. Open with the single most relevant thing Jose has actually "
-            "built (his Claude-based RAG/agent repos), not a generic intro.\n"
-            "2. If the posting has screening questions, answer each one "
+            "1. If the posting says to start the proposal with a specific "
+            "word or phrase, the proposal's very first word(s) must be "
+            "exactly that phrase.\n"
+            "2. Lead with the most relevant project from the profile's "
+            "`projects` list, by its exact name and link. Never name, link "
+            "or describe any project, repo, tool or employer that is not in "
+            "that list.\n"
+            "3. Location, timezone, availability and rates come only from "
+            "the profile, worded as stated there. If the profile doesn't "
+            "say it, don't state it.\n"
+            "4. If the profile's `client_work` is empty, say plainly in one "
+            "sentence that Jose's work so far is self-directed (no paid "
+            "client deployments yet), and never imply otherwise.\n"
+            "5. If the posting has screening questions, answer each one "
             "directly in the proposal body.\n"
-            "3. If the posting requires an exact phrase, include it "
+            "6. If the posting requires an exact phrase anywhere, include it "
             "verbatim, unchanged.\n"
-            "4. If the fit analysis flagged a real gap (e.g. no live client "
-            "deployment results), address it honestly in one sentence "
-            "rather than implying something that isn't true.\n"
-            "5. Never state a specific dollar figure, hours-saved number, "
-            "or client outcome that wasn't actually given to you as fact."
+            "7. Never state a specific dollar figure, hours-saved number, "
+            "metric or client outcome that isn't in the profile or posting.\n"
+            "8. Client signals written in the posting itself (payment "
+            "verified, rating, jobs posted) count as known facts about the "
+            "client; don't call them missing."
         ),
         expected_output=(
             "The final proposal text, ready to paste into Upwork, plus a "
             "short separate note flagging anything the posting requires "
             "that this proposal cannot fulfill on its own (e.g. 'still "
-            "need to record and attach the 1-minute video')."
+            "need to record and attach the Loom video')."
         ),
         agent=agent,
     )
