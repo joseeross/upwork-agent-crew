@@ -20,6 +20,7 @@ exactly what will happen wherever you actually run this.
 """
 
 import os
+import re
 import sys
 
 from dotenv import load_dotenv
@@ -53,16 +54,18 @@ def load_api_key() -> None:
 
 
 def parse_verdict(fit_output_text: str) -> str:
-    """Pull RECOMMEND/SKIP off the Fit Analyst's final line.
+    """Pull RECOMMEND/SKIP off the Fit Analyst's verdict line.
 
-    Defensive: if the model didn't follow the format exactly, default to
-    SKIP rather than silently proceeding to draft a proposal for a job
-    nobody actually recommended.
+    Tolerates markdown the model tends to add ("**VERDICT: RECOMMEND** --
+    ...") and only reads the word right after "VERDICT:", so commentary
+    later on the line (e.g. "otherwise downgrade to SKIP") can't flip it.
+    Defensive: if no verdict line is found, default to SKIP rather than
+    drafting a proposal for a job nobody actually recommended.
     """
     for line in reversed(fit_output_text.strip().splitlines()):
-        line = line.strip()
-        if line.upper().startswith("VERDICT:"):
-            return "RECOMMEND" if "RECOMMEND" in line.upper() else "SKIP"
+        m = re.match(r"[\s*_#>`-]*VERDICT\s*:[\s*_`]*([A-Z]+)", line, re.I)
+        if m:
+            return "RECOMMEND" if m.group(1).upper() == "RECOMMEND" else "SKIP"
     return "SKIP"
 
 
