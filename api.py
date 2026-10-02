@@ -13,13 +13,12 @@ only, reachable by n8n and nothing else. Don't publish its port.
 
 import os
 
-from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from crew import run_pipeline
+from crew import load_api_key, run_pipeline
 
-load_dotenv()
+load_api_key()
 
 app = FastAPI(title="Upwork Agent Crew")
 

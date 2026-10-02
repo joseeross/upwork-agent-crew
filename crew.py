@@ -39,6 +39,19 @@ from tasks.crew_tasks import (
 )
 
 
+def load_api_key() -> None:
+    """Load .env, then accept CREW_ANTHROPIC_API_KEY as an alias.
+
+    Some hosts (e.g. Claude Code cloud environments) reserve the
+    ANTHROPIC_API_KEY name, so the key can be supplied under the alias
+    instead. CrewAI itself only reads ANTHROPIC_API_KEY.
+    """
+    load_dotenv()
+    alias = os.environ.get("CREW_ANTHROPIC_API_KEY")
+    if alias and not os.environ.get("ANTHROPIC_API_KEY"):
+        os.environ["ANTHROPIC_API_KEY"] = alias
+
+
 def parse_verdict(fit_output_text: str) -> str:
     """Pull RECOMMEND/SKIP off the Fit Analyst's final line.
 
@@ -121,7 +134,7 @@ def run_pipeline(job_posting_text: str, force: bool = False) -> dict:
 
 
 def main():
-    load_dotenv()
+    load_api_key()
 
     if len(sys.argv) < 2:
         print("Usage: python crew.py path/to/posting.txt [--force]")
@@ -132,7 +145,8 @@ def main():
 
     if not os.environ.get("ANTHROPIC_API_KEY"):
         print(
-            "ANTHROPIC_API_KEY is not set. Copy .env.example to .env and "
+            "ANTHROPIC_API_KEY (or CREW_ANTHROPIC_API_KEY) is not set. "
+            "Copy .env.example to .env and "
             "add your key -- this crew makes real model calls and has no "
             "offline fallback."
         )
