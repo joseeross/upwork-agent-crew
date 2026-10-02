@@ -66,6 +66,34 @@ python crew.py path/to/posting.txt
 python crew.py path/to/posting.txt --force
 ```
 
+## Run it from n8n
+
+`api.py` exposes the same pipeline over HTTP (`POST /run`), and
+`n8n/workflows/upwork-crew.json` is a ready-to-import workflow:
+
+```
+Form (paste posting) ─┐
+                      ├─> Normalize ─> Run Crew (POST crew-api:8000/run) ─> Proposal drafted?
+Webhook POST ─────────┘                                                      ├─ yes -> Gmail draft: proposal + fit + research
+                                                                             └─ no  -> Gmail draft: [SKIP] + fit analysis
+```
+
+```bash
+cp .env.example .env          # add ANTHROPIC_API_KEY
+docker compose up -d --build  # n8n on http://localhost:5678, crew-api internal only
+```
+
+In n8n: **Workflows → Import from File** → `n8n/workflows/upwork-crew.json`,
+attach a Gmail OAuth2 credential to both Gmail nodes, then activate.
+
+- **Form:** open the *Paste Job Posting* node's production URL, paste, submit.
+- **Webhook:** `curl -X POST http://localhost:5678/webhook/upwork-job -H 'Content-Type: application/json' -d '{"posting":"...","force":false}'`
+
+Nothing is sent automatically. Every result lands as a Gmail **draft** for
+you to review. A crew run takes minutes, so the HTTP node's timeout is set
+to 15 min. Upwork dropped its public job RSS feeds in 2024, so intake is by
+paste or webhook (for example from a browser extension or an email parser).
+
 ## A note on how this was built
 
 This repo was written inside a sandboxed agent session that could not
