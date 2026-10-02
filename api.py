@@ -34,7 +34,10 @@ load_api_key()
 
 app = FastAPI(title="Upwork Agent Crew")
 
-OFFICE_HTML = Path(__file__).resolve().parent / "office" / "index.html"
+ROOT = Path(__file__).resolve().parent
+OFFICE_HTML = ROOT / "office" / "index.html"
+SAMPLE_POSTING = ROOT / "samples" / "sample_posting.txt"
+MIN_POSTING_CHARS = 150
 AGENTS = ("scout", "fit", "research", "writer")
 MAX_LOG = 200
 
@@ -132,9 +135,20 @@ def office():
     return FileResponse(OFFICE_HTML)
 
 
+@app.get("/office/sample")
+def office_sample():
+    return {"posting": SAMPLE_POSTING.read_text(encoding="utf-8")}
+
+
 @app.post("/office/jobs")
 def office_start(req: RunRequest):
     _require_ready(req.posting)
+    if len(req.posting.strip()) < MIN_POSTING_CHARS:
+        raise HTTPException(
+            status_code=422,
+            detail="That looks too short to be a job posting. Paste the full "
+                   "posting text (or click \"Use sample job\").",
+        )
     job_id = uuid.uuid4().hex[:12]
     with _lock:
         _jobs[job_id] = {

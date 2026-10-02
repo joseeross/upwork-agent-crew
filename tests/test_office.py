@@ -41,7 +41,7 @@ def test_job_runs_records_desks_and_chat_revises(monkeypatch):
     monkeypatch.setattr(api, "run_pipeline", fake_run)
     monkeypatch.setattr(api, "revise_proposal", fake_revise)
 
-    job_id = client.post("/office/jobs", json={"posting": "a job"}).json()["id"]
+    job_id = client.post("/office/jobs", json={"posting": "a job " * 40}).json()["id"]
     state = _wait(job_id, "done")
     assert state["desks"]["scout"] == {"status": "done", "say": "Facts extracted."}
     assert state["result"]["proposal"] == "TICKETBOT hello"
@@ -60,7 +60,15 @@ def test_chat_refused_without_proposal(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
     monkeypatch.setattr(api, "run_pipeline", lambda posting, force=False, on_event=None: {
         "verdict": "SKIP", "forced": False, "fit_output": "", "proposal": "", "warnings": []})
-    job_id = client.post("/office/jobs", json={"posting": "a job"}).json()["id"]
+    job_id = client.post("/office/jobs", json={"posting": "a job " * 40}).json()["id"]
     _wait(job_id, "done")
     assert client.post(f"/office/jobs/{job_id}/chat", json={"message": "hi"}).status_code == 409
     assert client.get("/office/jobs/nope").status_code == 404
+
+
+def test_sample_and_short_posting_guard(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
+    sample = client.get("/office/sample").json()["posting"]
+    assert "TICKETBOT" in sample
+    resp = client.post("/office/jobs", json={"posting": "samples\\sample_posting.txt"})
+    assert resp.status_code == 422 and "too short" in resp.json()["detail"]

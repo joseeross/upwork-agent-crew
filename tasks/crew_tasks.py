@@ -25,7 +25,10 @@ def build_scout_task(agent, job_posting_text: str) -> Task:
             f"---\n{job_posting_text}\n---\n\n"
             "Extract: the core job description in 2-3 sentences, required "
             "skills, rate, weekly hours, contract duration, experience "
-            "level, any client/company name mentioned, and ALL hard "
+            "level, any client/company name mentioned, client signals "
+            "exactly as written in the posting (payment verified or not, "
+            "rating, jobs posted, hire rate, total spent, location; say "
+            "'not shown' only for ones truly absent), and ALL hard "
             "application requirements (e.g. a required video, a required "
             "exact phrase, required screening questions to answer). List "
             "screening questions verbatim if present."
@@ -33,7 +36,8 @@ def build_scout_task(agent, job_posting_text: str) -> Task:
         expected_output=(
             "A structured summary with these exact sections: Description, "
             "Required Skills, Rate, Hours, Duration, Experience Level, "
-            "Client/Company Name (or 'not given'), Hard Requirements, "
+            "Client/Company Name (or 'not given'), Client Signals, Hard "
+            "Requirements, "
             "Screening Questions."
         ),
         agent=agent,

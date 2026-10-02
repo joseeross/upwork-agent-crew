@@ -138,9 +138,10 @@
 <main>
   <section>
     <h2>New job</h2>
-    <textarea id="posting" placeholder="Paste the full Upwork job posting here…"></textarea>
+    <textarea id="posting" placeholder="Paste the full text of an Upwork job posting here (not a file name)…"></textarea>
     <div class="row">
       <button id="startBtn">Start the crew</button>
+      <button id="sampleBtn" class="ghost">Use sample job</button>
       <label class="check"><input type="checkbox" id="force"> Draft anyway, even on SKIP</label>
     </div>
     <div id="startErr" class="error"></div>
@@ -301,7 +302,12 @@ async function poll() {
 async function start() {
   $("startErr").textContent = "";
   const posting = $("posting").value;
-  if (!posting.trim()) { $("startErr").textContent = "Paste a job posting first."; return; }
+  if (posting.trim().length < 150) {
+    $("startErr").textContent = posting.trim()
+      ? "That looks too short to be a job posting. Paste the full posting text, or click \"Use sample job\"."
+      : "Paste a job posting first.";
+    return;
+  }
   $("startBtn").disabled = true;
   try {
     const res = await fetch("/office/jobs", {
@@ -332,7 +338,16 @@ async function sendChat() {
   clearTimeout(timer); poll();
 }
 
+async function useSample() {
+  try {
+    const res = await fetch("/office/sample");
+    $("posting").value = (await res.json()).posting;
+    $("startErr").textContent = "";
+  } catch (_) { $("startErr").textContent = "Couldn't load the sample job."; }
+}
+
 buildFloor();
+$("sampleBtn").onclick = useSample;
 renderDesks({});
 $("startBtn").onclick = start;
 $("chatBtn").onclick = sendChat;
