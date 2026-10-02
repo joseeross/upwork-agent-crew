@@ -56,3 +56,14 @@ def test_strip_title_lines():
     assert strip_title_lines("# Proposal\n\nTICKETBOT\n\nI built...") == "TICKETBOT\n\nI built..."
     assert strip_title_lines("**Upwork Proposal:**\nHi") == "Hi"
     assert strip_title_lines("TICKETBOT\n# Proposal") == "TICKETBOT\n# Proposal"
+
+
+def test_to_plain_text():
+    from crew import to_plain_text
+
+    md = ("I built **[upwork-agent-crew](https://github.com/joseeross/upwork-agent-crew)** "
+          "and __more__.\n## Plan\n* step one\n[site](https://example.com)")
+    assert to_plain_text(md) == (
+        "I built upwork-agent-crew (https://github.com/joseeross/upwork-agent-crew) and more.\n"
+        "Plan\n- step one\nsite (https://example.com)"
+    )

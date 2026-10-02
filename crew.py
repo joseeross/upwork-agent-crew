@@ -69,6 +69,24 @@ def strip_title_lines(proposal: str) -> str:
     return "\n".join(lines)
 
 
+def to_plain_text(text: str) -> str:
+    """Upwork proposals are plain text: turn markdown into readable text.
+
+    [label](url) -> "label (url)" (or just the url), drops **bold**/__bold__
+    markers, leading "#" heading marks and "* " bullets become "- ".
+    """
+    def link(m):
+        label, url = m.group(1).strip(), m.group(2).strip()
+        bare = re.sub(r"^https?://(www\.)?", "", url).rstrip("/")
+        return url if label in (url, bare) else f"{label} ({url})"
+
+    text = re.sub(r"\[([^\]]+)\]\((https?://[^)\s]+)\)", link, text)
+    text = re.sub(r"(\*\*|__)(.+?)\1", r"\2", text)
+    text = re.sub(r"^#{1,6}\s+", "", text, flags=re.M)
+    text = re.sub(r"^(\s*)\* ", r"\1- ", text, flags=re.M)
+    return text
+
+
 def check_proposal(proposal: str, posting: str, profile_text: str) -> list[str]:
     """Deterministic post-checks on the drafted proposal (no model call).
 
@@ -209,7 +227,7 @@ def run_pipeline(job_posting_text: str, force: bool = False, on_event=None) -> d
     stage2_proposal.kickoff()
 
     result["research_output"] = research_output
-    result["proposal"] = strip_title_lines(str(proposal_task.output))
+    result["proposal"] = to_plain_text(strip_title_lines(str(proposal_task.output)))
     result["warnings"] = check_proposal(
         result["proposal"], job_posting_text, LoadFreelancerProfileTool()._run()
     )
@@ -229,7 +247,7 @@ def revise_proposal(job_posting_text: str, proposal: str, instruction: str, on_e
     if on_event:
         on_event("writer", "working", f"Revising: {instruction[:120]}")
     Crew(agents=[writer], tasks=[task], process=Process.sequential).kickoff()
-    revised = strip_title_lines(str(task.output))
+    revised = to_plain_text(strip_title_lines(str(task.output)))
     if on_event:
         on_event("writer", "done", "Revision ready.")
     return {
