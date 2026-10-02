@@ -9,15 +9,30 @@ import re
 from crewai.tools import BaseTool
 
 
+_MONEY = r"\$\s?(\d[\d,]*(?:\.\d+)?)"
+
+
+def _money(raw: str) -> str:
+    return raw.replace(",", "")
+
+
 def _extract_rate(text: str) -> str:
-    hourly = re.search(r"\$(\d+(?:\.\d+)?)\s*-\s*\$?(\d+(?:\.\d+)?)\s*/?\s*hr", text, re.I)
-    if hourly:
-        return f"${hourly.group(1)}-${hourly.group(2)}/hr"
-    single_hourly = re.search(r"\$(\d+(?:\.\d+)?)\s*/\s*hr", text, re.I)
+    # Hourly range: "$45.00-$70.00/hr", "$45 - $70 Hourly", "Hourly: $45-$70"
+    rng = re.search(_MONEY + r"\s*(?:-|to|–)\s*" + _MONEY, text, re.I)
+    hourly_hint = re.search(r"/\s*hr\b|\bhourly\b|\bper hour\b", text, re.I)
+    if rng and hourly_hint:
+        return f"${_money(rng.group(1))}-${_money(rng.group(2))}/hr"
+    single_hourly = re.search(_MONEY + r"\s*(?:/\s*hr\b|per hour\b|hourly\b)", text, re.I) or re.search(
+        r"\bhourly\s*:?\s*" + _MONEY, text, re.I
+    )
     if single_hourly:
-        return f"${single_hourly.group(1)}/hr"
-    fixed = re.search(r"fixed[- ]price", text, re.I)
-    if fixed:
+        return f"${_money(single_hourly.group(1))}/hr"
+    if re.search(r"fixed[- ]price", text, re.I):
+        budget = re.search(r"(?:budget|fixed[- ]price)\s*:?\s*" + _MONEY, text, re.I) or re.search(
+            _MONEY + r"\s*fixed[- ]price", text, re.I
+        )
+        if budget:
+            return f"Fixed-price ${_money(budget.group(1))}"
         return "Fixed-price (see posting for budget)"
     return "Not stated"
 
@@ -40,11 +55,13 @@ def _extract_level(text: str) -> str:
 
 
 def _extract_video_requirement(text: str) -> bool:
-    return bool(re.search(r"\b(1|one)[- ]minute video\b", text, re.I))
+    # "1-minute video", "Loom video", "record a video", "include a Loom"
+    return bool(re.search(r"\bloom\b|\bvideo\b", text, re.I))
 
 
 def _extract_screening_phrase(text: str) -> str:
-    m = re.search(r'phrase ["“]([^"”]+)["”]', text, re.I)
+    # 'phrase "X"', 'the word "X"', 'start your proposal with "X"'
+    m = re.search(r'(?:phrase|word|words|with)\s*:?\s*["“]([^"”]+)["”]', text, re.I)
     return m.group(1) if m else ""
 
 

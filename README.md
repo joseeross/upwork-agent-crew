@@ -66,6 +66,9 @@ python crew.py path/to/posting.txt
 python crew.py path/to/posting.txt --force
 ```
 
+A sample posting lives in `samples/sample_posting.txt`. Tests (no API key
+needed): `pip install -r requirements-dev.txt && python -m pytest`.
+
 ## Run it from n8n
 
 `api.py` exposes the same pipeline over HTTP (`POST /run`), and

@@ -1,0 +1,16 @@
+Build an AI agent that triages support tickets (Claude + n8n)
+
+Hourly: $45.00-$70.00
+Less than 30 hrs/week
+1 to 3 months
+Expert
+
+We're a SaaS company looking for an AI engineer to build an agent that reads
+incoming Zendesk tickets, classifies them, drafts replies with Claude, and
+routes them through n8n. Must have experience with Anthropic API, RAG over our
+help-center docs, and n8n workflows.
+
+To show you read this, start your proposal with the word "TICKETBOT".
+Please include a short Loom video walking through a similar project.
+
+Client: Payment method verified, 4.9 rating, 23 jobs posted, United States.
