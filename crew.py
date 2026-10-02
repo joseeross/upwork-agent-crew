@@ -55,6 +55,19 @@ def load_api_key() -> None:
         os.environ["ANTHROPIC_API_KEY"] = alias
 
 
+def strip_title_lines(proposal: str) -> str:
+    """Drop leading heading/label lines the model adds ("# Proposal",
+    "**Proposal:**") so the text pastes into Upwork starting with the
+    actual proposal (and any required opening phrase)."""
+    lines = proposal.strip().splitlines()
+    while lines and (
+        not lines[0].strip()
+        or re.fullmatch(r"[#*_\s]*(upwork\s+)?proposal[:*_\s]*", lines[0].strip(), re.I)
+    ):
+        lines.pop(0)
+    return "\n".join(lines)
+
+
 def check_proposal(proposal: str, posting: str, profile_text: str) -> list[str]:
     """Deterministic post-checks on the drafted proposal (no model call).
 
@@ -157,7 +170,7 @@ def run_pipeline(job_posting_text: str, force: bool = False) -> dict:
     stage2_proposal.kickoff()
 
     result["research_output"] = research_output
-    result["proposal"] = str(proposal_task.output)
+    result["proposal"] = strip_title_lines(str(proposal_task.output))
     result["warnings"] = check_proposal(
         result["proposal"], job_posting_text, LoadFreelancerProfileTool()._run()
     )

@@ -44,6 +44,7 @@ projects:
       scores fit against a YAML profile, and drafts proposals; wired into n8n
       (form/webhook intake -> crew API -> Gmail drafts), Dockerized, with
       regex fact extraction and a pytest suite + GitHub Actions CI.
+      (No RAG or vector database in this project -- it reads a YAML profile.)
 
 # Paid client engagements with real outcomes. Empty = none yet; proposals
 # must say so honestly instead of implying deployed client results.

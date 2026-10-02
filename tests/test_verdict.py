@@ -48,3 +48,11 @@ def test_check_proposal_flags_phrase_and_unknown_links():
     assert any("start with" in w for w in warnings)
     assert any("claude-rag-agent" in w for w in warnings)
     assert any("missing" in w for w in check_proposal("Hello", posting, profile))
+
+
+def test_strip_title_lines():
+    from crew import strip_title_lines
+
+    assert strip_title_lines("# Proposal\n\nTICKETBOT\n\nI built...") == "TICKETBOT\n\nI built..."
+    assert strip_title_lines("**Upwork Proposal:**\nHi") == "Hi"
+    assert strip_title_lines("TICKETBOT\n# Proposal") == "TICKETBOT\n# Proposal"
