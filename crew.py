@@ -4,6 +4,9 @@ Usage:
     python crew.py path/to/posting.txt
     python crew.py path/to/posting.txt --force   # run proposal stage even on SKIP
 
+The same pipeline is exposed over HTTP by api.py for the n8n workflow
+in n8n/ -- see run_pipeline().
+
 Flow:
     Stage 1 (one Crew): Job Scout -> Fit Analyst. Fit Analyst ends its
     output with "VERDICT: RECOMMEND" or "VERDICT: SKIP".
@@ -50,27 +53,13 @@ def parse_verdict(fit_output_text: str) -> str:
     return "SKIP"
 
 
-def main():
-    load_dotenv()
+def run_pipeline(job_posting_text: str, force: bool = False) -> dict:
+    """Run both stages and return every intermediate output.
 
-    if len(sys.argv) < 2:
-        print("Usage: python crew.py path/to/posting.txt [--force]")
-        sys.exit(1)
-
-    posting_path = sys.argv[1]
-    force = "--force" in sys.argv[2:]
-
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        print(
-            "ANTHROPIC_API_KEY is not set. Copy .env.example to .env and "
-            "add your key -- this crew makes real model calls and has no "
-            "offline fallback."
-        )
-        sys.exit(1)
-
-    with open(posting_path, "r", encoding="utf-8") as f:
-        job_posting_text = f.read()
-
+    Shared by the CLI below and by api.py (the HTTP wrapper n8n calls).
+    Stage 2 only runs on RECOMMEND or when force=True; otherwise
+    research_output and proposal come back as empty strings.
+    """
     llm = LLM(model="anthropic/claude-sonnet-4-5")
 
     # ---- Stage 1: Scout -> Fit ----
@@ -85,24 +74,22 @@ def main():
         tasks=[scout_task, fit_task],
         process=Process.sequential,
     )
-    stage1_result = stage1.kickoff()
+    stage1.kickoff()
 
     scout_output = str(scout_task.output)
     fit_output = str(fit_task.output)
     verdict = parse_verdict(fit_output)
 
-    print("\n" + "=" * 60)
-    print("STAGE 1 RESULT -- JOB SCOUT + FIT ANALYST")
-    print("=" * 60)
-    print(fit_output)
-    print(f"\nParsed verdict: {verdict}")
-
+    result = {
+        "verdict": verdict,
+        "forced": force and verdict != "RECOMMEND",
+        "scout_output": scout_output,
+        "fit_output": fit_output,
+        "research_output": "",
+        "proposal": "",
+    }
     if verdict != "RECOMMEND" and not force:
-        print(
-            "\nVerdict is SKIP. Not drafting a proposal. Re-run with "
-            "--force to draft one anyway."
-        )
-        return
+        return result
 
     # ---- Stage 2: Research -> Proposal ----
     researcher = build_client_researcher(llm)
@@ -127,17 +114,57 @@ def main():
         process=Process.sequential,
     )
     stage2_proposal.kickoff()
-    proposal_output = str(proposal_task.output)
+
+    result["research_output"] = research_output
+    result["proposal"] = str(proposal_task.output)
+    return result
+
+
+def main():
+    load_dotenv()
+
+    if len(sys.argv) < 2:
+        print("Usage: python crew.py path/to/posting.txt [--force]")
+        sys.exit(1)
+
+    posting_path = sys.argv[1]
+    force = "--force" in sys.argv[2:]
+
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        print(
+            "ANTHROPIC_API_KEY is not set. Copy .env.example to .env and "
+            "add your key -- this crew makes real model calls and has no "
+            "offline fallback."
+        )
+        sys.exit(1)
+
+    with open(posting_path, "r", encoding="utf-8") as f:
+        job_posting_text = f.read()
+
+    result = run_pipeline(job_posting_text, force=force)
+
+    print("\n" + "=" * 60)
+    print("STAGE 1 RESULT -- JOB SCOUT + FIT ANALYST")
+    print("=" * 60)
+    print(result["fit_output"])
+    print(f"\nParsed verdict: {result['verdict']}")
+
+    if not result["proposal"]:
+        print(
+            "\nVerdict is SKIP. Not drafting a proposal. Re-run with "
+            "--force to draft one anyway."
+        )
+        return
 
     print("\n" + "=" * 60)
     print("STAGE 2 RESULT -- CLIENT RESEARCH")
     print("=" * 60)
-    print(research_output)
+    print(result["research_output"])
 
     print("\n" + "=" * 60)
     print("FINAL PROPOSAL")
     print("=" * 60)
-    print(proposal_output)
+    print(result["proposal"])
 
 
 if __name__ == "__main__":

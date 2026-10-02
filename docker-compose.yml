@@ -1,0 +1,27 @@
+# n8n + the crew API on one private network.
+#   cp .env.example .env   # add ANTHROPIC_API_KEY
+#   docker compose up -d --build
+#   open http://localhost:5678 and import n8n/workflows/upwork-crew.json
+services:
+  crew-api:
+    build: .
+    env_file: .env
+    restart: unless-stopped
+    # No "ports:" -- only n8n should reach this, at http://crew-api:8000
+
+  n8n:
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5678:5678"
+    environment:
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-America/New_York}
+      - N8N_SECURE_COOKIE=false
+      - WEBHOOK_URL=${N8N_WEBHOOK_URL:-http://localhost:5678/}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - crew-api
+
+volumes:
+  n8n_data:
