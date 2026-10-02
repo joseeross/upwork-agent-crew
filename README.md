@@ -97,6 +97,16 @@ you to review. A crew run takes minutes, so the HTTP node's timeout is set
 to 15 min. Upwork dropped its public job RSS feeds in 2024, so intake is by
 paste or webhook (for example from a browser extension or an email parser).
 
+## Virtual Office
+
+`http://localhost:8000/office` (after `docker compose up -d --build`) shows the
+four agents at their desks: each desk lights up while that agent works, a
+speech bubble shows what it's doing, and an activity log runs underneath.
+Paste a posting, press **Start the crew**, then chat with the Proposal Writer
+("make it shorter", "rate $60/hr") to revise the draft. Revisions follow the
+same rules as the first draft (profile is the only source of facts) and get
+the same fact check. The API port is published on `127.0.0.1` only.
+
 ## A note on how this was built
 
 This repo was written inside a sandboxed agent session that could not

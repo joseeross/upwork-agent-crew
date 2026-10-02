@@ -2,12 +2,17 @@
 #   cp .env.example .env   # add ANTHROPIC_API_KEY
 #   docker compose up -d --build
 #   open http://localhost:5678 and import n8n/workflows/upwork-crew.json
+#   open http://localhost:8000/office for the Virtual Office
 services:
   crew-api:
     build: .
     env_file: .env
     restart: unless-stopped
-    # No "ports:" -- only n8n should reach this, at http://crew-api:8000
+    # Localhost only: the Virtual Office at http://localhost:8000/office.
+    # n8n reaches it internally at http://crew-api:8000. The API has no
+    # auth, so never change this to 0.0.0.0 / a bare "8000:8000".
+    ports:
+      - "127.0.0.1:8000:8000"
 
   n8n:
     image: n8nio/n8n:latest

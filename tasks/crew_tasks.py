@@ -129,3 +129,27 @@ def build_proposal_task(agent, job_posting_text: str, fit_summary_text: str, res
         ),
         agent=agent,
     )
+
+
+def build_revision_task(agent, job_posting_text: str, proposal: str, instruction: str) -> Task:
+    profile_text = LoadFreelancerProfileTool()._run()
+    return Task(
+        description=(
+            "Jose's profile (the ONLY source of facts about Jose):\n---\n"
+            + profile_text + "\n---\n\n"
+            "Original job posting:\n---\n" + job_posting_text + "\n---\n\n"
+            "Current proposal draft:\n---\n" + proposal + "\n---\n\n"
+            "Jose's instruction for this revision:\n---\n" + instruction + "\n---\n\n"
+            "Rewrite the proposal following Jose's instruction. Keep every "
+            "rule from the original brief: output the proposal text only (no "
+            "title), keep any required opening phrase first, cite only "
+            "projects in the profile's `projects` list as their summary "
+            "describes them, take location/timezone/availability from the "
+            "profile, never invent metrics, outcomes or client work. If the "
+            "instruction asks you to state something about Jose that isn't "
+            "in the profile, use Jose's own words from the instruction "
+            "rather than embellishing them."
+        ),
+        expected_output="The full revised proposal text, ready to paste into Upwork.",
+        agent=agent,
+    )

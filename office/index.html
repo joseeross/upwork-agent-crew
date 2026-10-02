@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Office</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --bg: #0f1420; --floor: #161d2c; --panel: #1b2335; --line: #2a3550;
+    --text: #e6ebf5; --muted: #8b97b0; --accent: #6ea8ff; --ok: #4fd18b;
+    --warn: #ffb547; --bad: #ff6b6b; --desk: #3a2f27; --deskTop: #5a4636;
+    --screenOff: #10151f; --screenOn: #12325a; --glow: rgba(110,168,255,.55);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  header {
+    display: flex; align-items: center; gap: 12px; padding: 14px 20px;
+    border-bottom: 1px solid var(--line);
+  }
+  header h1 { font-size: 18px; margin: 0; letter-spacing: .3px; }
+  header .status { margin-left: auto; color: var(--muted); font-size: 13px; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); margin-right: 6px; vertical-align: middle; }
+  .dot.live { background: var(--ok); box-shadow: 0 0 8px var(--ok); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+
+  main {
+    display: grid; gap: 16px; padding: 16px 20px;
+    grid-template-columns: minmax(240px, 300px) minmax(0, 1fr) minmax(300px, 420px);
+  }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-width: 0; }
+  section h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; }
+
+  textarea, input[type=text] {
+    width: 100%; background: var(--bg); color: var(--text);
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px; font: inherit;
+  }
+  textarea { min-height: 220px; resize: vertical; }
+  button {
+    background: var(--accent); color: #08101f; border: 0; border-radius: 8px;
+    padding: 9px 14px; font: 600 14px/1 inherit; cursor: pointer;
+  }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--line); }
+  .row { display: flex; gap: 10px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+  .row input[type=text] { flex: 1; width: auto; min-width: 0; }
+  label.check { color: var(--muted); font-size: 13px; display: flex; gap: 6px; align-items: center; }
+  .error { color: var(--bad); font-size: 13px; margin-top: 8px; white-space: pre-wrap; }
+
+  /* ---------- the office floor ---------- */
+  .floor {
+    position: relative; border-radius: 12px; padding: 18px;
+    background-image: repeating-linear-gradient(0deg, transparent 0 47px, rgba(255,255,255,.03) 47px 48px),
+                      repeating-linear-gradient(90deg, transparent 0 47px, rgba(255,255,255,.03) 47px 48px);
+    background-color: var(--floor);
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px;
+  }
+  @media (max-width: 560px) { .floor { grid-template-columns: 1fr; } }
+  .desk { position: relative; padding-top: 64px; }
+  .bubble {
+    position: absolute; top: 0; left: 8px; right: 8px; min-height: 52px;
+    background: #f4f6fb; color: #1c2333; border-radius: 10px; padding: 8px 10px;
+    font-size: 12.5px; line-height: 1.35; opacity: 0; transform: translateY(6px);
+    transition: opacity .25s, transform .25s; overflow: hidden;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  }
+  .bubble::after {
+    content: ""; position: absolute; bottom: -7px; left: 28px;
+    border: 7px solid transparent; border-top-color: #f4f6fb; border-bottom: 0;
+  }
+  .desk.has-say .bubble { opacity: 1; transform: none; }
+  .station {
+    background: var(--desk); border-radius: 10px; padding: 12px; position: relative;
+    border: 1px solid #00000040; transition: box-shadow .3s;
+  }
+  .desk.working .station { box-shadow: 0 0 0 2px var(--accent), 0 0 24px var(--glow); }
+  .desk.done .station { box-shadow: 0 0 0 2px var(--ok); }
+  .monitor {
+    height: 74px; border-radius: 6px; background: var(--screenOff); border: 4px solid #222a38;
+    position: relative; overflow: hidden;
+  }
+  .desk.working .monitor { background: var(--screenOn); }
+  .desk.working .monitor::before {
+    content: ""; position: absolute; inset: 0;
+    background: repeating-linear-gradient(0deg, rgba(255,255,255,.08) 0 2px, transparent 2px 9px);
+    animation: scroll 1.4s linear infinite;
+  }
+  .desk.done .monitor { background: #123b2a; }
+  .monitor .glyph { position: absolute; inset: 0; display: grid; place-items: center; font-size: 26px; }
+  @keyframes scroll { to { background-position: 0 -36px; } }
+  .stand { width: 26px; height: 10px; background: #222a38; margin: 0 auto; }
+  .tabletop { height: 12px; background: var(--deskTop); border-radius: 4px; margin: 0 -6px; }
+  .person { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+  .avatar {
+    width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center;
+    background: #2b3446; font-size: 20px; flex: none;
+  }
+  .desk.working .avatar { animation: bob .9s ease-in-out infinite; }
+  @keyframes bob { 50% { transform: translateY(-3px); } }
+  .name { font-weight: 600; }
+  .state { font-size: 12px; color: var(--muted); }
+  .desk.working .state { color: var(--accent); }
+  .desk.done .state { color: var(--ok); }
+
+  .log { margin-top: 14px; max-height: 180px; overflow: auto; font-size: 12.5px; color: var(--muted); }
+  .log div { padding: 3px 0; border-bottom: 1px dashed #ffffff10; }
+  .log b { color: var(--text); font-weight: 600; }
+
+  /* ---------- results ---------- */
+  .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; }
+  .pill.rec { background: #173d2a; color: var(--ok); }
+  .pill.skip { background: #42231f; color: var(--bad); }
+  .warns { background: #3a2c12; border: 1px solid #6b5020; color: var(--warn); border-radius: 8px; padding: 8px 10px; font-size: 13px; margin: 10px 0; }
+  .warns ul { margin: 4px 0 0; padding-left: 18px; }
+  .proposal {
+    white-space: pre-wrap; background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px; max-height: 340px; overflow: auto; font-size: 14px; margin-top: 10px;
+  }
+  .chat { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow: auto; margin: 12px 0 8px; }
+  .msg { max-width: 88%; padding: 8px 11px; border-radius: 12px; font-size: 13.5px; white-space: pre-wrap; }
+  .msg.writer { background: #26324a; align-self: flex-start; border-bottom-left-radius: 3px; }
+  .msg.you { background: var(--accent); color: #08101f; align-self: flex-end; border-bottom-right-radius: 3px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 13px; margin-top: 10px; }
+  details pre { white-space: pre-wrap; font-size: 12.5px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🏢 Agent Office</h1>
+  <span class="status"><span id="liveDot" class="dot"></span><span id="statusText">Idle. Paste a job to get the team working.</span></span>
+</header>
+
+<main>
+  <section>
+    <h2>New job</h2>
+    <textarea id="posting" placeholder="Paste the full Upwork job posting here…"></textarea>
+    <div class="row">
+      <button id="startBtn">Start the crew</button>
+      <label class="check"><input type="checkbox" id="force"> Draft anyway, even on SKIP</label>
+    </div>
+    <div id="startErr" class="error"></div>
+    <p class="muted" style="margin-top:14px">Nothing is sent to Upwork. You copy the final proposal yourself.</p>
+  </section>
+
+  <section>
+    <h2>The office</h2>
+    <div class="floor" id="floor"></div>
+    <div class="log" id="log"></div>
+  </section>
+
+  <section>
+    <h2>Result</h2>
+    <div id="result"><p class="muted">The verdict and proposal will appear here.</p></div>
+    <h2 style="margin-top:16px">Chat with the Proposal Writer</h2>
+    <div class="chat" id="chat"></div>
+    <div class="row" style="margin-top:0">
+      <input type="text" id="chatInput" placeholder="e.g. make it shorter, rate $60/hr" disabled>
+      <button id="chatBtn" disabled>Send</button>
+    </div>
+  </section>
+</main>
+
+<script>
+const AGENTS = [
+  { key: "scout",    name: "Job Scout",         icon: "🔎", screen: "📄" },
+  { key: "fit",      name: "Fit Analyst",       icon: "📊", screen: "⚖️" },
+  { key: "research", name: "Client Researcher", icon: "🌐", screen: "🗂️" },
+  { key: "writer",   name: "Proposal Writer",   icon: "✍️", screen: "📝" },
+];
+const STATE_LABEL = { idle: "At desk, waiting", working: "Working…", done: "Finished" };
+const $ = (id) => document.getElementById(id);
+let jobId = null, timer = null, lastChatLen = -1;
+
+function store(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (_) {} }
+function load(k) { try { return localStorage.getItem(k); } catch (_) { return null; } }
+
+function el(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
+}
+
+function buildFloor() {
+  const floor = $("floor");
+  for (const a of AGENTS) {
+    const desk = el("div", "desk"); desk.id = "desk-" + a.key;
+    desk.append(el("div", "bubble"));
+    const st = el("div", "station");
+    const mon = el("div", "monitor"); mon.append(el("div", "glyph", a.screen));
+    st.append(mon, el("div", "stand"), el("div", "tabletop"));
+    const p = el("div", "person");
+    const info = el("div");
+    info.append(el("div", "name", a.name), el("div", "state", STATE_LABEL.idle));
+    p.append(el("div", "avatar", a.icon), info);
+    st.append(p);
+    desk.append(st);
+    floor.append(desk);
+  }
+}
+
+function renderDesks(desks) {
+  for (const a of AGENTS) {
+    const d = desks[a.key] || { status: "idle", say: "" };
+    const node = $("desk-" + a.key);
+    node.classList.remove("idle", "working", "done");
+    node.classList.add(d.status);
+    node.classList.toggle("has-say", !!d.say);
+    node.querySelector(".bubble").textContent = d.say || "";
+    node.querySelector(".state").textContent = STATE_LABEL[d.status] || d.status;
+  }
+}
+
+function renderLog(log) {
+  const box = $("log"); box.textContent = "";
+  const names = Object.fromEntries(AGENTS.map(a => [a.key, a.name]));
+  for (const e of log.slice(-40).reverse()) {
+    if (!e.text) continue;
+    const row = el("div");
+    row.append(el("b", null, (names[e.agent] || e.agent) + ": "), document.createTextNode(e.text));
+    box.append(row);
+  }
+}
+
+function renderResult(job) {
+  const box = $("result"); box.textContent = "";
+  if (job.status === "error") {
+    box.append(el("div", "error", "The crew hit an error:\n" + job.error));
+    return;
+  }
+  const r = job.result;
+  if (!r) { box.append(el("p", "muted", "The team is working on it…")); return; }
+  const head = el("div");
+  head.append(el("span", "pill " + (r.verdict === "RECOMMEND" ? "rec" : "skip"), r.verdict));
+  if (r.forced) head.append(el("span", "muted", "  drafted anyway"));
+  box.append(head);
+  if (r.warnings && r.warnings.length) {
+    const w = el("div", "warns", "Fact check, review before sending:");
+    const ul = el("ul"); r.warnings.forEach(x => ul.append(el("li", null, x)));
+    w.append(ul); box.append(w);
+  }
+  if (r.proposal) {
+    box.append(el("div", "proposal", r.proposal));
+    const row = el("div", "row");
+    const copy = el("button", "ghost", "Copy proposal");
+    copy.onclick = async () => {
+      try { await navigator.clipboard.writeText(r.proposal); copy.textContent = "Copied ✓"; }
+      catch (_) { copy.textContent = "Select the text and copy it"; }
+      setTimeout(() => (copy.textContent = "Copy proposal"), 1800);
+    };
+    row.append(copy); box.append(row);
+  }
+  const det = el("details");
+  det.append(el("summary", null, "Fit analysis"), el("pre", null, r.fit_output || ""));
+  box.append(det);
+}
+
+function renderChat(job) {
+  if (job.chat.length === lastChatLen) return;
+  lastChatLen = job.chat.length;
+  const box = $("chat"); box.textContent = "";
+  for (const m of job.chat) box.append(el("div", "msg " + (m.from === "you" ? "you" : "writer"), m.text));
+  box.scrollTop = box.scrollHeight;
+}
+
+function render(job) {
+  renderDesks(job.desks);
+  renderLog(job.log);
+  renderResult(job);
+  renderChat(job);
+  const busy = job.status === "running" || job.status === "revising";
+  $("liveDot").classList.toggle("live", busy);
+  $("statusText").textContent =
+    job.status === "running" ? "The crew is working…" :
+    job.status === "revising" ? "The Proposal Writer is revising…" :
+    job.status === "error" ? "Something went wrong (see Result)." : "Done. Review, chat, or start a new job.";
+  const canChat = job.status === "done" && job.result && job.result.proposal;
+  $("chatInput").disabled = !canChat; $("chatBtn").disabled = !canChat;
+  $("startBtn").disabled = busy;
+  return busy;
+}
+
+async function poll() {
+  if (!jobId) return;
+  try {
+    const res = await fetch("/office/jobs/" + jobId);
+    if (res.status === 404) { jobId = null; store("officeJob", null); return; }
+    const job = await res.json();
+    const busy = render(job);
+    timer = setTimeout(poll, busy ? 1200 : 5000);
+  } catch (_) {
+    timer = setTimeout(poll, 3000);
+  }
+}
+
+async function start() {
+  $("startErr").textContent = "";
+  const posting = $("posting").value;
+  if (!posting.trim()) { $("startErr").textContent = "Paste a job posting first."; return; }
+  $("startBtn").disabled = true;
+  try {
+    const res = await fetch("/office/jobs", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ posting, force: $("force").checked }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || res.statusText);
+    jobId = data.id; store("officeJob", jobId); lastChatLen = -1;
+    clearTimeout(timer); poll();
+  } catch (e) {
+    $("startErr").textContent = "Couldn't start: " + e.message;
+    $("startBtn").disabled = false;
+  }
+}
+
+async function sendChat() {
+  const message = $("chatInput").value.trim();
+  if (!message || !jobId) return;
+  $("chatInput").value = ""; $("chatBtn").disabled = true;
+  try {
+    const res = await fetch("/office/jobs/" + jobId + "/chat", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+    });
+    if (!res.ok) { const d = await res.json(); alert(d.detail || "Couldn't send"); }
+  } catch (_) { alert("Couldn't reach the crew. Is Docker running?"); }
+  clearTimeout(timer); poll();
+}
+
+buildFloor();
+renderDesks({});
+$("startBtn").onclick = start;
+$("chatBtn").onclick = sendChat;
+$("chatInput").addEventListener("keydown", (e) => { if (e.key === "Enter") sendChat(); });
+jobId = load("officeJob");
+if (jobId) poll();
+</script>
+</body>
+</html>

@@ -39,6 +39,7 @@ from tasks.crew_tasks import (
     build_fit_task,
     build_research_task,
     build_proposal_task,
+    build_revision_task,
 )
 
 
@@ -106,13 +107,37 @@ def parse_verdict(fit_output_text: str) -> str:
     return "SKIP"
 
 
-def run_pipeline(job_posting_text: str, force: bool = False) -> dict:
+def _step_text(step) -> str:
+    """Best-effort one-line summary of a CrewAI agent step for live views."""
+    for attr in ("thought", "text", "output", "result"):
+        val = getattr(step, attr, None)
+        if isinstance(val, str) and val.strip():
+            return " ".join(val.split())[:180]
+    return " ".join(str(step).split())[:180]
+
+
+def run_pipeline(job_posting_text: str, force: bool = False, on_event=None) -> dict:
     """Run both stages and return every intermediate output.
 
-    Shared by the CLI below and by api.py (the HTTP wrapper n8n calls).
+    Shared by the CLI below and by api.py (n8n and the Virtual Office).
     Stage 2 only runs on RECOMMEND or when force=True; otherwise
     research_output and proposal come back as empty strings.
+
+    on_event(agent, status, text), if given, is called as each agent
+    starts ("working"), reports a step ("thinking") or finishes ("done").
+    agent is one of: scout, fit, research, writer.
     """
+    current = {"agent": "scout"}
+
+    def emit(agent, status, text=""):
+        if agent in ("scout", "fit", "research", "writer") and status == "working":
+            current["agent"] = agent
+        if on_event:
+            on_event(agent, status, text)
+
+    def on_step(step):
+        emit(current["agent"], "thinking", _step_text(step))
+
     llm = LLM(model="anthropic/claude-sonnet-4-5")
 
     # ---- Stage 1: Scout -> Fit ----
@@ -122,16 +147,25 @@ def run_pipeline(job_posting_text: str, force: bool = False) -> dict:
     scout_task = build_scout_task(scout, job_posting_text)
     fit_task = build_fit_task(fit_analyst, scout_task)
 
+    def on_stage1_task(output):
+        if current["agent"] == "scout":
+            emit("scout", "done", "Facts extracted from the posting.")
+            emit("fit", "working", "Comparing the job with your profile...")
+
     stage1 = Crew(
         agents=[scout, fit_analyst],
         tasks=[scout_task, fit_task],
         process=Process.sequential,
+        step_callback=on_step,
+        task_callback=on_stage1_task,
     )
+    emit("scout", "working", "Reading the job posting...")
     stage1.kickoff()
 
     scout_output = str(scout_task.output)
     fit_output = str(fit_task.output)
     verdict = parse_verdict(fit_output)
+    emit("fit", "done", f"Verdict: {verdict}")
 
     result = {
         "verdict": verdict,
@@ -155,9 +189,12 @@ def run_pipeline(job_posting_text: str, force: bool = False) -> dict:
         agents=[researcher],
         tasks=[research_task],
         process=Process.sequential,
+        step_callback=on_step,
     )
+    emit("research", "working", "Looking up the client...")
     stage2_research.kickoff()
     research_output = str(research_task.output)
+    emit("research", "done", "Client research finished.")
 
     proposal_task = build_proposal_task(
         writer, job_posting_text, fit_output, research_output
@@ -166,7 +203,9 @@ def run_pipeline(job_posting_text: str, force: bool = False) -> dict:
         agents=[writer],
         tasks=[proposal_task],
         process=Process.sequential,
+        step_callback=on_step,
     )
+    emit("writer", "working", "Drafting your proposal...")
     stage2_proposal.kickoff()
 
     result["research_output"] = research_output
@@ -174,7 +213,29 @@ def run_pipeline(job_posting_text: str, force: bool = False) -> dict:
     result["warnings"] = check_proposal(
         result["proposal"], job_posting_text, LoadFreelancerProfileTool()._run()
     )
+    emit("writer", "done", "Proposal ready for your review.")
     return result
+
+
+def revise_proposal(job_posting_text: str, proposal: str, instruction: str, on_event=None) -> dict:
+    """Have the Proposal Writer revise an existing draft per your instruction.
+
+    Same sourcing rules as the first draft (profile is the only source of
+    facts about Jose), and the same deterministic fact check afterwards.
+    """
+    llm = LLM(model="anthropic/claude-sonnet-4-5")
+    writer = build_proposal_writer(llm)
+    task = build_revision_task(writer, job_posting_text, proposal, instruction)
+    if on_event:
+        on_event("writer", "working", f"Revising: {instruction[:120]}")
+    Crew(agents=[writer], tasks=[task], process=Process.sequential).kickoff()
+    revised = strip_title_lines(str(task.output))
+    if on_event:
+        on_event("writer", "done", "Revision ready.")
+    return {
+        "proposal": revised,
+        "warnings": check_proposal(revised, job_posting_text, LoadFreelancerProfileTool()._run()),
+    }
 
 
 def main():
